@@ -1,78 +1,139 @@
 import streamlit as st
-import datetime
 import pandas as pd
+import datetime
+import base64
+import os
+from groq import Groq
 
-# 1. 페이지 테마 설정
-st.set_page_config(page_title="꿈네비 - 진실된 미래 가이드", layout="centered")
+# --- 1. 초기 설정 및 CSS (모몽이 둥실 모션 + UI 디자인) ---
+st.set_page_config(page_title="꿈네비 - 모몽이와 꿈 찾기", layout="centered")
 
-# 2. 대입 전형 계산 로직 (진실된 데이터 기반)
-def calculate_admission_year(birth_date):
-    # 생년월일 기준 고3이 되는 해와 적용 교육과정 산출
-    grad_year = birth_date.year + 19
-    if grad_year >= 2028:
-        curriculum = "2022 개정 교육과정 (고교학점제 전면 적용)"
-    else:
-        curriculum = "2015 개정 교육과정"
-    return grad_year, curriculum
+st.markdown("""
+    <style>
+    @keyframes floating {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-15px); }
+        100% { transform: translateY(0px); }
+    }
+    .momong-container {
+        display: flex; justify-content: center;
+        animation: floating 3s ease-in-out infinite;
+        margin-bottom: 20px;
+    }
+    .stButton>button { width: 100%; border-radius: 20px; height: 3.5em; font-weight: bold; }
+    .stAudio { display: none; } 
+    </style>
+    """, unsafe_allow_html=True)
 
-# 3. 세션 상태 관리
-if 'page' not in st.session_state:
-    st.session_state.page = 'intro'
-if 'user_info' not in st.session_state:
-    st.session_state.user_info = {}
+# --- 2. 사운드 재생 함수 (효과음 & 배경음 통합) ---
+def play_sound(file_path, is_bgm=False):
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "rb") as f:
+                data = f.read()
+                b64 = base64.b64encode(data).decode()
+                loop = "loop" if is_bgm else ""
+                md = f'<audio autoplay="true" {loop}><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'
+                st.markdown(md, unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"소리 재생 중 에러: {e}")
+
+# --- 3. 세션 상태 관리 ---
+if 'step' not in st.session_state: st.session_state.step = 0
+if 'page' not in st.session_state: st.session_state.page = 'intro'
 if 'scores' not in st.session_state:
-    st.session_state.scores = {"R(현장)":0, "I(탐구)":0, "A(예술)":0, "S(사회)":0, "E(진취)":0, "C(관습)":0}
+    st.session_state.scores = {"R":0, "I":0, "A":0, "S":0, "E":0, "C":0}
 
-# --- PAGE 1: 정보 수집 (별명/생년월일) ---
+# --- 4. 질문지 데이터 (12문항 전체) ---
+questions = [
+    {"q": "기계나 도구를 직접 만지고 고치는 일이 즐거운가요? (R)", "type": "R"},
+    {"q": "새로운 사실을 알아내기 위해 관찰하고 분석하는 걸 좋아하나요? (I)", "type": "I"},
+    {"q": "예술적인 활동이나 창의적인 아이디어 내는 걸 좋아하나요? (A)", "type": "A"},
+    {"q": "어려운 친구를 돕거나 가르쳐주는 일에서 보람을 느끼나요? (S)", "type": "S"},
+    {"q": "목표를 정하고 다른 사람들을 이끌어 성과를 내고 싶나요? (E)", "type": "E"},
+    {"q": "규칙에 따라 꼼꼼하게 정리하고 기록하는 일이 편한가요? (C)", "type": "C"},
+    {"q": "운동이나 야외 활동 등 몸을 움직이는 직업이 끌리나요? (R)", "type": "R"},
+    {"q": "수학이나 과학 같은 과제 해결에 몰입하는 편인가요? (I)", "type": "I"},
+    {"q": "남들과 다른 나만의 독특한 옷이나 소품을 선호하나요? (A)", "type": "A"},
+    {"q": "사람들의 고민을 들어주고 상담해주는 게 편한가요? (S)", "type": "S"},
+    {"q": "사업을 하거나 무언가를 팔아보고 싶다는 생각을 하나요? (E)", "type": "E"},
+    {"q": "정해진 시간표대로 움직이는 것이 마음 편한가요? (C)", "type": "C"}
+]
+
+# --- 5. 화면 구현 로직 ---
+
+# [PAGE 1: 정보수집]
 if st.session_state.page == 'intro':
-    st.title("☁️ 모몽이와의 첫 만남")
-    st.write("모몽이가 당신의 꿈 구슬을 빚기 위해 기본 정보가 필요해요.")
+    play_sound("bgm.mp4", is_bgm=True)
+    st.title("☁️ 꿈네비")
     
-    nickname = st.text_input("모몽이가 당신을 뭐라고 부르면 좋을까요? (별명)")
-    birth_date = st.date_input("생년월일을 알려주세요.", min_value=datetime.date(2005, 1, 1))
+    # 이미지 확인 후 출력
+    if os.path.exists("momong.png"):
+        st.markdown('<div class="momong-container">', unsafe_allow_html=True)
+        st.image("momong.png", width=200)
+        st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.warning("( 'ㅅ' ) 모몽이 이미지를 찾을 수 없어요. (momong.png 확인 필요)")
     
-    if st.button("모몽이와 시작하기"):
-        grad_year, curriculum = calculate_admission_year(birth_date)
-        st.session_state.user_info = {
-            "nickname": nickname,
-            "grad_year": grad_year,
-            "curriculum": curriculum
-        }
-        st.session_state.page = 'test'
-        st.rerun()
+    nickname = st.text_input("모몽이가 부를 별명을 알려줘!", placeholder="예: 미래의박사")
+    birth_date = st.date_input("생년월일을 알려줘!", min_value=datetime.date(2000, 1, 1))
+    
+    if st.button("모몽이와 시작하기!"):
+        if nickname:
+            st.session_state.user_info = {"nickname": nickname, "birth": birth_date}
+            st.session_state.page = 'test'
+            st.rerun()
+        else:
+            st.error("별명을 꼭 입력해줘! ( 'ㅅ' )")
 
-# --- PAGE 2: 12문항 정밀 진단 (4대 이론 통합) ---
+# [PAGE 2: 12문항 테스트]
 elif st.session_state.page == 'test':
-    st.subheader(f"{st.session_state.user_info['nickname']}님을 위한 잠재력 스펙트럼 진단")
+    progress = st.session_state.step / len(questions)
+    st.progress(progress)
     
-    # [예시 문항] 실제로는 12문항이 순차적으로 노출됩니다.
-    st.info("Q1. 복잡한 기계의 내부 구조를 파악하고 고치는 일에 흥미를 느끼나요?")
+    curr_q = questions[st.session_state.step]
+    st.markdown(f"### ( 'ㅅ' ) : {curr_q['q']}")
+    
     col1, col2 = st.columns(2)
     if col1.button("매우 그렇다"):
-        st.session_state.scores["R(현장)"] += 2
-        st.session_state.page = 'result' # 프로토타입상 바로 결과로 이동
+        play_sound("kkyu.mp3")
+        st.session_state.scores[curr_q['type']] += 2
+        st.session_state.step += 1
+        if st.session_state.step >= len(questions): st.session_state.page = 'result'
         st.rerun()
     if col2.button("그렇지 않다"):
-        st.session_state.page = 'result'
+        play_sound("kkyu.mp3")
+        st.session_state.step += 1
+        if st.session_state.step >= len(questions): st.session_state.page = 'result'
         st.rerun()
 
-# --- PAGE 3: 진실된 데이터 전략 리포트 ---
+# [PAGE 3: 결과 리포트]
 elif st.session_state.page == 'result':
-    st.success(f"🎊 {st.session_state.user_info['nickname']}님의 꿈 구슬 완성!")
+    play_sound("twinkle.mp3")
+    st.balloons()
+    st.header(f"🎊 {st.session_state.user_info['nickname']}님의 꿈 구슬 리포트")
     
-    # 1. 대입 전략 컨설팅
-    st.subheader("📍 맞춤형 대입 전략 개요")
-    st.write(f"- **대입 예정 연도:** {st.session_state.user_info['grad_year']}학년도")
-    st.write(f"- **적용 교육과정:** {st.session_state.user_info['curriculum']}")
-    st.warning("💡 생년월일 분석 결과: 고교학점제에 따른 과목 선택이 매우 중요한 시기입니다.")
-    
-    # 2. 잠재력 스펙트럼 (홀랜드/다중지능 기반)
-    st.subheader("📊 나의 잠재력 분석 결과")
-    # (차트 시각화 로직 생략 - 이전 v1 참조)
-    
-    # 3. 세밀한 직업 및 컨설팅 (진로현황조사 기반)
-    st.subheader("🚀 모몽이의 추천 경로")
-    st.write("진로교육 현황조사(2025) 데이터와 당신의 역량을 매칭한 결과:")
-    st.info("**추천 직업: 신재생 에너지 시스템 검사원**")
-    st.write("- **이유:** R(현장형) 성향과 환경에 대한 사회적 수요가 결합된 최적의 경로입니다.")
-    st.write("- **준비 전략:** 관련 대학의 학생부 종합 전형을 목표로, 과학 탐구 실험 역량을 강조하세요.")
+    # 엑셀 DB 로드 시도
+    excel_file = "DreamNavi_Job_DB_v2_Ethical.xlsx"
+    if os.path.exists(excel_file):
+        df = pd.read_excel(excel_file)
+        top_type = max(st.session_state.scores, key=st.session_state.scores.get)
+        st.success(f"모몽이의 분석 결과, 당신은 **[{top_type}]** 유형의 강점이 가장 뚜렷합니다!")
+    else:
+        st.error(f"데이터 파일을 찾을 수 없습니다: {excel_file}")
+
+    # AI 컨설팅 (Groq)
+    if st.secrets.get("GROQ_API_KEY"):
+        client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+        with st.spinner('모몽이가 미래를 시뮬레이션 중...'):
+            try:
+                prompt = f"{st.session_state.user_info['nickname']} 학생은 {st.session_state.scores} 역량을 가졌어. 대입 전략과 직업 조언을 해줘."
+                response = client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model="llama3-8b-8192",
+                )
+                st.markdown(response.choices[0].message.content)
+            except Exception as e:
+                st.write("AI 모몽이가 생각에 잠겼어요. 나중에 다시 시도해줘!")
+    else:
+        st.warning("API 키가 설정되지 않아 AI 조언을 출력할 수 없습니다.")
