@@ -5,27 +5,28 @@ import base64
 import os
 from groq import Groq
 
-# --- 1. 초기 설정 및 CSS (모몽이 둥실 모션 + UI 디자인) ---
+# --- 1. 초기 설정 및 CSS (모몽이 둥실 모션 + UI 한글화) ---
 st.set_page_config(page_title="꿈네비 - 모몽이와 꿈 찾기", layout="centered")
 
+# CSS: 둥실둥실 애니메이션 및 한글 폰트 최적화
 st.markdown("""
     <style>
     @keyframes floating {
         0% { transform: translateY(0px); }
-        50% { transform: translateY(-15px); }
+        50% { transform: translateY(-20px); }
         100% { transform: translateY(0px); }
     }
     .momong-container {
         display: flex; justify-content: center;
-        animation: floating 3s ease-in-out infinite;
-        margin-bottom: 20px;
+        animation: floating 2.5s ease-in-out infinite;
+        margin: 30px 0;
     }
-    .stButton>button { width: 100%; border-radius: 20px; height: 3.5em; font-weight: bold; }
+    .stButton>button { width: 100%; border-radius: 25px; height: 3.5em; font-weight: bold; background-color: #f0f2f6; }
     .stAudio { display: none; } 
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 사운드 재생 함수 (효과음 & 배경음 통합) ---
+# --- 2. 사운드 재생 함수 ---
 def play_sound(file_path, is_bgm=False):
     if os.path.exists(file_path):
         try:
@@ -35,8 +36,8 @@ def play_sound(file_path, is_bgm=False):
                 loop = "loop" if is_bgm else ""
                 md = f'<audio autoplay="true" {loop}><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'
                 st.markdown(md, unsafe_allow_html=True)
-        except Exception as e:
-            st.error(f"소리 재생 중 에러: {e}")
+        except Exception:
+            pass
 
 # --- 3. 세션 상태 관리 ---
 if 'step' not in st.session_state: st.session_state.step = 0
@@ -44,7 +45,7 @@ if 'page' not in st.session_state: st.session_state.page = 'intro'
 if 'scores' not in st.session_state:
     st.session_state.scores = {"R":0, "I":0, "A":0, "S":0, "E":0, "C":0}
 
-# --- 4. 질문지 데이터 (12문항 전체) ---
+# --- 4. 질문지 데이터 (12문항) ---
 questions = [
     {"q": "기계나 도구를 직접 만지고 고치는 일이 즐거운가요? (R)", "type": "R"},
     {"q": "새로운 사실을 알아내기 위해 관찰하고 분석하는 걸 좋아하나요? (I)", "type": "I"},
@@ -62,29 +63,35 @@ questions = [
 
 # --- 5. 화면 구현 로직 ---
 
-# [PAGE 1: 정보수집]
+# [PAGE 1: 정보수집 - 한글 날짜 버전]
 if st.session_state.page == 'intro':
     play_sound("bgm.mp4", is_bgm=True)
     st.title("☁️ 꿈네비")
     
-    # 이미지 확인 후 출력
     if os.path.exists("momong.png"):
         st.markdown('<div class="momong-container">', unsafe_allow_html=True)
-        st.image("momong.png", width=200)
+        st.image("momong.png", width=220)
         st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        st.warning("( 'ㅅ' ) 모몽이 이미지를 찾을 수 없어요. (momong.png 확인 필요)")
     
     nickname = st.text_input("모몽이가 부를 별명을 알려줘!", placeholder="예: 미래의박사")
-    birth_date = st.date_input("생년월일을 알려줘!", min_value=datetime.date(2000, 1, 1))
     
-    if st.button("모몽이와 시작하기!"):
+    # 날짜 한글화 및 범위 설정
+    today = datetime.date.today()
+    birth_date = st.date_input(
+        "생년월일을 선택해줘! ( 'ㅅ' )",
+        value=datetime.date(2010, 1, 1),
+        min_value=datetime.date(1990, 1, 1),
+        max_value=today,
+        help="달력에서 연도와 월을 선택할 수 있어!"
+    )
+    
+    if st.button("🎵 음악과 함께 시작하기!"):
         if nickname:
             st.session_state.user_info = {"nickname": nickname, "birth": birth_date}
             st.session_state.page = 'test'
             st.rerun()
         else:
-            st.error("별명을 꼭 입력해줘! ( 'ㅅ' )")
+            st.error("별명을 입력해줘야 모몽이가 출발할 수 있어! ( 'ㅅ' )")
 
 # [PAGE 2: 12문항 테스트]
 elif st.session_state.page == 'test':
@@ -113,27 +120,22 @@ elif st.session_state.page == 'result':
     st.balloons()
     st.header(f"🎊 {st.session_state.user_info['nickname']}님의 꿈 구슬 리포트")
     
-    # 엑셀 DB 로드 시도
     excel_file = "DreamNavi_Job_DB_v2_Ethical.xlsx"
     if os.path.exists(excel_file):
         df = pd.read_excel(excel_file)
         top_type = max(st.session_state.scores, key=st.session_state.scores.get)
-        st.success(f"모몽이의 분석 결과, 당신은 **[{top_type}]** 유형의 강점이 가장 뚜렷합니다!")
-    else:
-        st.error(f"데이터 파일을 찾을 수 없습니다: {excel_file}")
-
-    # AI 컨설팅 (Groq)
+        st.success(f"모몽이 분석 결과: 당신은 **[{top_type}]** 유형의 강점이 뚜렷해!")
+    
     if st.secrets.get("GROQ_API_KEY"):
         client = Groq(api_key=st.secrets["GROQ_API_KEY"])
         with st.spinner('모몽이가 미래를 시뮬레이션 중...'):
             try:
-                prompt = f"{st.session_state.user_info['nickname']} 학생은 {st.session_state.scores} 역량을 가졌어. 대입 전략과 직업 조언을 해줘."
+                # 생년월일을 바탕으로 나이 계산 등을 포함한 프롬프트
+                prompt = f"{st.session_state.user_info['nickname']}({st.session_state.user_info['birth']}년생) 학생은 {st.session_state.scores} 역량을 가졌어. 진실된 데이터에 기반해 대입 전략과 직업 조언을 해줘."
                 response = client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt}],
                     model="llama3-8b-8192",
                 )
                 st.markdown(response.choices[0].message.content)
-            except Exception as e:
-                st.write("AI 모몽이가 생각에 잠겼어요. 나중에 다시 시도해줘!")
-    else:
-        st.warning("API 키가 설정되지 않아 AI 조언을 출력할 수 없습니다.")
+            except:
+                st.write("모몽이가 생각에 잠겼어. 잠시 후 다시 확인해줘!")
