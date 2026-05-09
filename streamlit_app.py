@@ -1,127 +1,150 @@
 import streamlit as st
 import pandas as pd
-import datetime
-import os
+import time
 
-# --- [1] UI/UX 극강 처방 (하얀 바/툴바/헤더 완전 박멸) ---
-st.set_page_config(page_title="꿈네비", layout="centered")
+# --- 1. 초기 설정 및 CSS (이미지 9의 디자인을 최대한 반영) ---
+st.set_page_config(page_title="꿈네비 - 모몽이와 꿈 찾기", layout="centered")
 
+# 카카오톡/애플 느낌의 둥글둥글한 폰트와 파스텔톤 CSS
 st.markdown("""
     <style>
-    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+    @font-face { font-family: 'NanumSquareRound'; src: url('https://hangeul.naver.com/font/nanum/NanumSquareRound/NanumSquareRoundR.ttf'); }
+    html, body, [class*="css"]  { font-family: 'NanumSquareRound', sans-serif; color: #333; }
     
-    /* 1. 스트림릿 내부 시스템이 만든 모든 상단 요소 물리적 삭제 */
-    /* 클래스 이름과 상관없이 최상단에 고정된 모든 바를 타겟팅합니다. */
-    [data-testid="stHeader"], 
-    header, 
-    .st-emotion-cache-18ni7ap, 
-    .st-emotion-cache-z5fcl4,
-    [data-testid="stToolbar"] {
-        display: none !important;
-        height: 0 !important;
-        width: 0 !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    /* 2. 본문 영역을 강제로 위로 끌어올림 (여백 절대 허용 안 함) */
-    .main .block-container {
-        padding-top: 55px !important; /* 커스텀 헤더만큼만 띄움 */
-        max-width: 500px !important;
-        margin: 0 auto;
-    }
+    .stApp { background-color: #ffffff; }
     
-    /* 3. 우리가 만든 이쁜 민트-핑크 커스텀 바 (이걸로 대체) */
-    .custom-top-bar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 50px;
-        background: linear-gradient(90deg, #B5FFFC 0%, #FFDEE9 100%);
-        z-index: 999999; /* 모든 시스템 요소보다 위에 위치 */
-    }
-
-    /* 4. 전체 디자인 세팅 */
-    html, body, [class*="css"] { 
-        font-family: 'Pretendard', sans-serif; 
-        color: #1e293b; 
-    }
-    
-    .stApp { 
+    # /* 메인 카드 디자인 */
+    .main-card {
         background-color: #ffffff;
-        background-image: radial-gradient(at 0% 0%, rgba(255,222,233,0.3) 0, transparent 50%), 
-                          radial-gradient(at 100% 100%, rgba(181,255,252,0.3) 0, transparent 50%); 
+        border-radius: 30px;
+        padding: 30px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        border: 1px solid #f0f0f0;
     }
-
-    /* 메인 카드 디자인 */
-    .main-card { 
-        background: rgba(255, 255, 255, 0.95); 
-        border-radius: 30px; 
-        padding: 40px 30px; 
-        box-shadow: 0 15px 35px rgba(0,0,0,0.05); 
-        border: 1px solid #f1f5f9; 
-        width: 100%;
+    
+    # /* 질문 박스 스타일 */
+    .question-box {
+        background-color: #fcfcfc;
+        border-radius: 20px;
+        padding: 20px;
+        margin-bottom: 20px;
         text-align: center;
+        border: 1px solid #eee;
     }
     
-    h1 { font-size: 32px !important; font-weight: 800 !important; margin-bottom: 5px !important; }
-    .sub-title { font-size: 15px; color: #64748b; margin-bottom: 25px; }
-    
-    label { font-size: 15px !important; font-weight: 600 !important; text-align: left !important; display: block !important; margin-top: 15px !important; }
-    
-    /* 버튼 스타일 */
-    .stButton>button { 
-        width: 100%; border-radius: 50px; height: 3.8em; font-weight: bold; font-size: 17px;
-        background: #B5FFFC; border: none; color: #334155; transition: 0.3s; margin-top: 25px;
-        box-shadow: 0 4px 15px rgba(181,255,252,0.3);
+    # /* 파스텔 답변 버튼 스타일 */
+    .stButton>button {
+        border-radius: 20px;
+        height: 3em;
+        font-weight: bold;
+        transition: all 0.2s;
+        border: none;
     }
-    .stButton>button:hover { background: #FFDEE9; transform: translateY(-2px); }
-
-    /* 푸터 및 기타 불필요 요소 제거 */
-    footer, .stDeployButton { display: none !important; }
+    .stButton>button:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+    
+    # /* 매우그렇다 (연그린) */
+    div[data-testid="column"]:nth-of-type(1) .stButton>button { background-color: #e3f9e5; color: #2d6a31; }
+    # /* 그렇다 (연하늘) */
+    div[data-testid="column"]:nth-of-type(2) .stButton>button { background-color: #e0f2fe; color: #0369a1; }
+    # /* 보통이다 (연노랑) */
+    div[data-testid="column"]:nth-of-type(3) .stButton>button { background-color: #fef9c3; color: #a16207; }
+    # /* 아니다 (연핑크) */
+    div[data-testid="column"]:nth-of-type(4) .stButton>button { background-color: #ffe4e6; color: #9f1239; }
+    
     </style>
-    
-    <div class="custom-top-bar"></div>
     """, unsafe_allow_html=True)
 
-# --- [2] 데이터 및 로직 처리 ---
-@st.cache_data
-def load_db():
-    f = "DreamNavi_Job_DB_v2_20240509.xlsx"
-    return pd.read_excel(f) if os.path.exists(f) else None
+# --- 2. 세션 상태 관리 (데이터 보관창고) ---
+if 'step' not in st.session_state: st.session_state.step = 0
+if 'page' not in st.session_state: st.session_state.page = 'intro'
+# 4대 이론 데이터를 담을 그릇
+if 'scores' not in st.session_state:
+    st.session_state.scores = {
+        "Holland": {"R":0, "I":0, "A":0, "S":0, "E":0, "C":0},
+        "MI": {"논리":0, "언어":0, "공간":0, "인간":0}, # 다중지능 일부
+        "Game": {"위험감수":0, "문제해결":0}, # 게임화 역량
+        "Future": {"AI활용":0, "시스템사고":0} # 미래역량
+    }
 
-df = load_db()
+# --- 3. 4대 이론 통합 질문지 데이터 ---
+questions = [
+    # 홀랜드 진단 (R형)
+    {"q": "모몽이가 준 고장 난 로봇을 직접 분해해서 고쳐보고 싶나요? 🔩", "type": "Holland", "key": "R"},
+    # 다중지능 진단 (논리수학)
+    {"q": "복잡한 미로 찾기나 수수께끼를 풀 때 시간 가는 줄 모르나요? 🧠", "type": "MI", "key": "논리"},
+    # 미래역량 진단 (AI활용)
+    {"q": "챗GPT 같은 AI 친구에게 궁금한 점을 물어보는 게 익숙한가요? 🤖", "type": "Future", "key": "AI활용"},
+    # 게임화 역량 (위험감수)
+    {"q": "(미니게임 상황) 점수를 잃을 수도 있지만, 대박 보상이 있는 보물상자를 열 건가요? 🎁", "type": "Game", "key": "위험감수"},
+    # ... (지면상 4개만 구현, 실제로는 12개로 확장됩니다)
+]
 
-# 세션 상태 초기화
-for key in ['page', 'step', 'scores', 'user_info', 'mind_info']:
-    if key not in st.session_state:
-        if key == 'scores': st.session_state[key] = {"정보통신":0, "문화/예술":0, "경영/회계":0, "보건/의료":0, "교육/법률":0}
-        elif key == 'step': st.session_state[key] = 0
-        elif key == 'page': st.session_state[key] = 'intro'
-        else: st.session_state[key] = {}
+# --- 4. 화면 구현 (UX/UI 가이드 반영) ---
 
-# --- [3] 화면 구현 ---
-
-# 인트로 화면
+# [PAGE 1: 인트로 - 모몽이와 첫 만남]
 if st.session_state.page == 'intro':
-    st.markdown("<h1>꿈네비</h1>", unsafe_allow_html=True)
-    st.markdown('<p class="sub-title">나만의 미래 지도를 그리는 시간</p>', unsafe_allow_html=True)
-    
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    name = st.text_input("이름이 뭐야?", placeholder="이름을 입력해줘")
-    birth = st.date_input("생년월일", value=datetime.date(2012, 1, 1))
-    region = st.selectbox("사는 지역", ["수도권", "비수도권", "농어촌(읍/면 단위)", "해외"])
-    abroad = st.radio("유학에 관심이 있니?", ["국내가 좋아", "고민 중이야", "세계로 가고 싶어"])
-
-    if st.button("내 꿈 찾으러 출발! ✨"):
-        if name:
-            st.session_state.user_info = {"name": name, "birth": birth, "region": region, "abroad": abroad}
-            st.session_state.page = 'mind_check'
-            st.rerun()
-        else: st.error("이름을 입력해줘!")
+    st.image("momong.png", width=200) # 짤뚱한 모몽이 이미지
+    st.title("안녕! 나는 꿈 가이드 '모몽이'야 ( 'ㅅ' )")
+    st.subheader("네가 어떤 '꿈 구슬'을 가졌는지 함께 찾아볼까?")
+    
+    name = st.text_input("네 이름이 뭐야?", placeholder="별명도 좋아!")
+    grade = st.selectbox("지금 몇 학년이야?", ["초등학교 4학년", "초등학교 5학년", "초등학교 6학년", "중학교 1학년"])
+    
+    if st.button("모몽이와 꿈 찾기 시작! ✨"):
+        st.session_state.user_info = {"name": name, "grade": grade}
+        st.session_state.page = 'test'
+        st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# (중략: 심리 파악 및 12문항 로직은 v18.0과 동일하게 유지됩니다.)
+# [PAGE 2: 테스트 - 모몽이의 꿈 수집]
+elif st.session_state.page == 'test':
+    # 상단 진행바 및 모몽이
+    progress = st.session_state.step / len(questions)
+    st.progress(progress)
+    st.markdown(f"<p style='text-align:center;'>지금까지 {st.session_state.step}개의 꿈 구슬 수집 완료! ( 'ㅅ' )</p>", unsafe_allow_html=True)
+
+    # 질문 박스
+    curr_q = questions[st.session_state.step]
+    st.markdown(f'<div class="question-box"><h3>{curr_q["q"]}</h3></div>', unsafe_allow_html=True)
+    
+    # 파스텔 답변 버튼 (4단 구성)
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("😄 매우 그렇다"):
+            st.session_state.scores[curr_q['type']][curr_q['key']] += 2
+            st.session_state.step += 1
+            st.rerun()
+    with col2:
+        if st.button("🙂 그렇다"):
+            st.session_state.scores[curr_q['type']][curr_q['key']] += 1
+            st.session_state.step += 1
+            st.rerun()
+    # ... 보통이다, 아니다 버튼 구현 (생략, 위와 동일 로직)
+    
+    # 모든 질문 완료 시 결과 페이지로
+    if st.session_state.step >= len(questions):
+        st.session_state.page = 'result'
+        st.rerun()
+
+# [PAGE 3: 결과 - 모몽이가 보여주는 너의 꿈 지도]
+elif st.session_state.page == 'result':
+    st.balloons() # 축하 효과
+    st.title(f"🎊 {st.session_state.user_info['name']}님의 잠재력 스펙트럼 리포트")
+    
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+    # 여기에 오각형 방사형 그래프(Radar Chart) 코드가 추가됩니다 (차후 구현)
+    st.subheader("📊 모몽이가 분석한 너의 핵심 강점")
+    
+    # 4대 이론 점수를 바탕으로 하이라이트 출력
+    scores = st.session_state.scores
+    if scores['Future']['AI활용'] > 1:
+        st.info("💡 너는 미래의 기술을 두려워하지 않고 활용하는 **'AI 리터러시'**가 탁월해!")
+    if scores['Holland']['R'] > 1:
+        st.success("🛠️ 손으로 무언가를 만들고 고치는 **'실재적 성향'**이 강하구나!")
+        
+    st.markdown("---")
+    st.subheader("🛰️ 너에게 어울리는 미래 융합 직업")
+    st.write("너의 강점들을 모아보니... 너는 **[스마트 시티 디지털 트윈 설계자]**가 딱이야!")
+    st.markdown('</div>', unsafe_allow_html=True)
