@@ -4,32 +4,32 @@ import base64
 import os
 import plotly.graph_objects as go
 
-# --- [1] UI/UX 극강 처방 (상단 바 및 빈 공간 완전 박멸) ---
+# --- [1] UI/UX 극강 처방 (상단 바 박멸 및 여백 제거) ---
 st.set_page_config(page_title="꿈네비", layout="centered")
 
 st.markdown("""
     <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
     
-    /* 1. 상단 화이트 바 및 여백 물리적 제거 (가장 강력한 설정) */
-    header, [data-testid="stHeader"] {
+    /* 1. 상단 바 및 여백 물리적 제거 - 3중 보안 */
+    header, [data-testid="stHeader"], .st-emotion-cache-18ni7ap {
         display: none !important;
         height: 0 !important;
         visibility: hidden !important;
     }
     
-    /* 본문 상단 여백을 강제로 제거 */
-    .st-emotion-cache-18ni7ap, .st-emotion-cache-z5fcl4 {
+    /* 화면을 위로 강제 인출 */
+    .st-emotion-cache-z5fcl4 {
         padding-top: 0rem !important;
-        margin-top: -50px !important; /* 상단 바 공간만큼 위로 강제 끌어올림 */
+        margin-top: -60px !important;
     }
     
     .block-container {
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
+        max-width: 500px !important;
     }
 
-    /* 메뉴 및 하단 요소 숨김 */
     #MainMenu, footer, .stDeployButton { display: none !important; }
 
     /* 2. 전체 중앙 정렬 및 배경 */
@@ -50,53 +50,62 @@ st.markdown("""
     .momong-center { 
         display: flex; justify-content: center; 
         animation: floating 2.5s ease-in-out infinite; 
-        margin: 20px auto 10px auto;
+        margin: 10px auto 10px auto;
     }
     
     /* 4. 메인 카드 디자인 */
     .main-card { 
         background: rgba(255, 255, 255, 0.9); border-radius: 30px; 
-        padding: 40px; box-shadow: 0 15px 35px rgba(0,0,0,0.05); 
-        border: 1px solid #f1f5f9; width: 100%; max-width: 480px; margin: 0 auto;
+        padding: 35px; box-shadow: 0 15px 35px rgba(0,0,0,0.05); 
+        border: 1px solid #f1f5f9; width: 100%; margin: 0 auto;
     }
     
-    /* 5. 텍스트 및 버튼 */
-    h1 { font-size: 26px !important; font-weight: 700 !important; margin-bottom: 20px !important; }
+    /* 5. 버튼 및 텍스트 크기 조절 */
+    h1 { font-size: 26px !important; font-weight: 700 !important; margin-top: 0 !important; }
+    h3 { font-size: 20px !important; line-height: 1.5; margin-bottom: 25px !important; }
     label { font-size: 16px !important; font-weight: 600 !important; text-align: left !important; display: block !important; }
     
     .stButton>button { 
         width: 100%; border-radius: 50px; height: 3.8em; font-weight: bold; font-size: 17px;
         background: linear-gradient(135deg, #B5FFFC 0%, #dfffff 100%); 
-        border: none; color: #334155; transition: 0.3s; margin-top: 15px;
+        border: none; color: #334155; transition: 0.3s; margin-top: 10px;
     }
     .stButton>button:hover { background: #FFDEE9; transform: scale(1.02); }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [2] 사운드 엔진 (중복 체크 완료) ---
+# --- [2] 사운드 엔진 (JS 강제 실행) ---
 def play_sound(file_path, is_bgm=False):
     if os.path.exists(file_path):
         with open(file_path, "rb") as f:
             data = f.read()
             b64 = base64.b64encode(data).decode()
             loop = "loop" if is_bgm else ""
-            audio_tag = f'<audio autoplay="true" {loop} style="display:none;"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'
-            st.markdown(audio_tag, unsafe_allow_html=True)
+            audio_id = "bgm" if is_bgm else "effect"
+            md = f"""
+                <audio id="{audio_id}" autoplay="true" {loop} style="display:none;">
+                    <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+                </audio>
+                <script>document.getElementById("{audio_id}").play();</script>
+            """
+            st.markdown(md, unsafe_allow_html=True)
 
 # --- [3] 데이터 로드 (어머님의 엑셀 DB 정확히 연결) ---
 @st.cache_data
 def load_db():
+    # 어머님이 보여주신 파일명과 정확히 일치시킴
     f = "DreamNavi_Job_DB_v2_20240509.xlsx"
     if os.path.exists(f): return pd.read_excel(f)
     return None
 
 df = load_db()
 
-# --- [4] 로직 유지 (심리분석 + 4대 엔진 12문항) ---
+# --- [4] 세션 및 로직 고정 (12문항 전체 전수 검사 완료) ---
 if 'page' not in st.session_state: st.session_state.page = 'intro'
 if 'scores' not in st.session_state: st.session_state.scores = {"R":0, "I":0, "A":0, "S":0, "E":0, "C":0, "AI":0, "Game":0}
 if 'step' not in st.session_state: st.session_state.step = 0
 
+# 12문항 전수 등록 (누락 없음)
 questions = [
     {"q": "기계나 로봇을 직접 조립하고 원리를 파악하는 게 즐겁니?", "type": "R"},
     {"q": "데이터 속에서 논리적인 패턴을 찾는 일이 흥미로워?", "type": "I"},
@@ -112,10 +121,12 @@ questions = [
     {"q": "새로운 걸 기획하고 사람들에게 알리는 게 설레니?", "type": "E"}
 ]
 
-# --- [5] 실행 화면 (무생략) ---
+# --- [5] 화면별 구현 (생략 없음) ---
+
+# [1] 인트로 화면
 if st.session_state.page == 'intro':
     st.markdown('<div class="momong-center">', unsafe_allow_html=True)
-    if os.path.exists("momong.png"): st.image("momong.png", width=200)
+    if os.path.exists("momong.png"): st.image("momong.png", width=180)
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown("<h1>모몽이와 첫 만남</h1>", unsafe_allow_html=True)
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
@@ -129,6 +140,7 @@ if st.session_state.page == 'intro':
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
+# [2] 심리 파악 화면
 elif st.session_state.page == 'mind_check':
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.subheader(f"✨ {st.session_state.user_info['name']}의 속마음")
@@ -136,36 +148,54 @@ elif st.session_state.page == 'mind_check':
     good_at = st.text_input("💪 이건 내가 진짜 자신 있다!")
     hard_thing = st.text_area("😟 요즘 너를 힘들게 하는 고민은 뭐야?")
     if st.button("내 마음 전달하기"):
+        st.session_state.mind_info = {"hobby": hobby, "good_at": good_at, "hard_thing": hard_thing}
+        st.session_state.page = 'engine_desc'
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# [3] 분석 엔진 설명 화면
+elif st.session_state.page == 'engine_desc':
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+    st.title("🧪 모몽이의 4가지 진단 구슬")
+    st.write("홀랜드, 재능, 행동, AI 역량을 통해 네 미래 지도를 그릴 거야.")
+    if st.button("좋아, 테스트 시작!"):
         st.session_state.page = 'test'
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
+# [4] 12문항 테스트 화면 (무생략 반복 로직)
 elif st.session_state.page == 'test':
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     q = questions[st.session_state.step]
-    st.markdown(f"### Q{st.session_state.step+1}. {q['q']}")
-    if st.button("매우 그렇다"):
+    st.markdown(f"### Q{st.session_state.step + 1}. {q['q']}")
+    
+    col1, col2 = st.columns(2)
+    if col1.button("매우 그렇다"):
         play_sound("kkyu.mp3")
         st.session_state.scores[q['type']] += 3
         st.session_state.step += 1
         if st.session_state.step >= len(questions): st.session_state.page = 'result'
         st.rerun()
-    if st.button("아니다"):
+    if col2.button("아니다"):
         st.session_state.step += 1
         if st.session_state.step >= len(questions): st.session_state.page = 'result'
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
+# [5] 결과 화면 (엑셀 데이터 매칭)
 elif st.session_state.page == 'result':
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.header(f"🎊 {st.session_state.user_info['name']}의 결과")
     best = max(st.session_state.scores, key=st.session_state.scores.get)
+    
     if df is not None:
         m = df[df['유형'] == best].iloc[0] if not df[df['유형'] == best].empty else df.iloc[0]
         st.success(f"추천 직업: {m['직업명']}")
         st.info(f"💡 모몽이의 한마디: {m['모몽이의 한마디']}")
         st.error(f"⚠️ 성장 가이드: {m['성장 가이드']}")
-    if st.button("다시 하기"):
+        st.write(f"🎓 학과 가이드: {m['학과']}")
+    
+    if st.button("다시 처음으로"):
         st.session_state.page = 'intro'
         st.session_state.step = 0
         st.rerun()
