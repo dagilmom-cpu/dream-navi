@@ -3,119 +3,168 @@ import pandas as pd
 import datetime
 import base64
 import os
-from groq import Groq
 
-# --- 1. 초기 설정 및 CSS (모몽이 강력 둥실 모션) ---
-st.set_page_config(page_title="꿈네비 - 모몽이와 꿈 찾기", layout="centered")
+# --- 1. 페이지 설정 및 디자인 ---
+st.set_page_config(page_title="꿈네비 - 모몽이와 함께하는 미래 여정", layout="centered")
 
 st.markdown("""
     <style>
-    @keyframes floating {
-        0% { transform: translateY(0px); }
-        50% { transform: translateY(-25px); }
-        100% { transform: translateY(0px); }
+    @import url('https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&display=swap');
+    html, body, [class*="css"] { font-family: 'Nanum Gothic', sans-serif; }
+    
+    .main-card {
+        background-color: #ffffff;
+        border-radius: 30px;
+        padding: 40px;
+        box-shadow: 0 10px 50px rgba(0,0,0,0.05);
+        border: 1px solid #f9f9f9;
+        margin-bottom: 20px;
     }
-    .momong-container {
-        display: flex; justify-content: center;
-        animation: floating 2s ease-in-out infinite; /* 2초 주기로 둥실 */
-        margin: 40px 0;
+    .stButton>button {
+        width: 100%;
+        border-radius: 50px;
+        height: 3.5em;
+        background-color: #FFDEE9;
+        background-image: linear-gradient(0deg, #FFDEE9 0%, #B5FFFC 100%);
+        border: none;
+        color: #444;
+        font-weight: bold;
+        transition: 0.3s;
     }
-    .stButton>button { width: 100%; border-radius: 25px; height: 3.5em; font-weight: bold; background-color: #f0f2f6; }
-    .stAudio { display: none; } 
+    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+    
+    .desc-box {
+        background-color: #f8f9fa;
+        border-radius: 20px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-left: 5px solid #B5FFFC;
+    }
+    .momong-img { display: flex; justify-content: center; margin-bottom: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 사운드 재생 함수 ---
-def play_sound(file_path, is_bgm=False):
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "rb") as f:
-                data = f.read()
-                b64 = base64.b64encode(data).decode()
-                loop = "loop" if is_bgm else ""
-                md = f'<audio autoplay="true" {loop}><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'
-                st.markdown(md, unsafe_allow_html=True)
-        except Exception: pass
-
-# --- 3. 세션 상태 관리 ---
-if 'step' not in st.session_state: st.session_state.step = 0
+# --- 2. 세션 상태 관리 ---
 if 'page' not in st.session_state: st.session_state.page = 'intro'
-if 'scores' not in st.session_state:
-    st.session_state.scores = {"R":0, "I":0, "A":0, "S":0, "E":0, "C":0}
+if 'user_info' not in st.session_state: st.session_state.user_info = {}
+if 'mind_info' not in st.session_state: st.session_state.mind_info = {}
 
-# --- 4. 화면 구현 로직 ---
+# --- 3. 화면 전환 로직 ---
 
-# [PAGE 1: 정보수집 - 완벽 한글 달력 버전]
+# [PAGE 1: 환영 및 기본 정보]
 if st.session_state.page == 'intro':
-    play_sound("bgm.mp4", is_bgm=True)
-    st.title("☁️ 꿈네비")
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+    st.title("☁️ 안녕! 나는 꿈 가이드 모몽이야")
+    st.write("너의 소중한 꿈을 찾기 위해 몇 가지 정보가 필요해.")
     
-    # 모몽이 이미지 출력
-    if os.path.exists("momong.png"):
-        st.markdown('<div class="momong-container">', unsafe_allow_html=True)
-        st.image("momong.png", width=220)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    nickname = st.text_input("모몽이가 부를 별명을 알려줘!", placeholder="예: 미래의박사")
-    
-    # 달력 한글화 (format과 locale 추가)
-    birth_date = st.date_input(
-        "생년월일을 선택해줘! ( 'ㅅ' )",
-        value=datetime.date(2010, 1, 1),
-        min_value=datetime.date(1990, 1, 1),
-        max_value=datetime.date.today(),
-        format="YYYY/MM/DD", # 한국식 날짜 표시
-        help="연도와 월을 클릭해서 바꿀 수 있어!"
-    )
-    
-    if st.button("🎵 음악과 함께 시작하기!"):
-        if nickname:
-            st.session_state.user_info = {"nickname": nickname, "birth": birth_date}
-            st.session_state.page = 'test'
+    name = st.text_input("이름(혹은 별명)을 알려줘")
+    col1, col2 = st.columns(2)
+    with col1:
+        birth = st.date_input("생년월일", value=datetime.date(2012, 1, 1))
+    with col2:
+        region = st.selectbox("사는 지역", ["수도권", "비수도권", "농어촌(읍/면)", "해외"])
+        
+    abroad = st.radio("유학에 관심이 있니?", ["관심 없어", "고민 중이야", "꼭 가고 싶어"])
+    country = st.text_input("가고 싶은 나라가 있다면 적어줘 (없으면 패스!)")
+
+    if st.button("모몽이와 대화 시작하기"):
+        if name:
+            st.session_state.user_info = {
+                "name": name, "birth": birth, "region": region, 
+                "abroad": abroad, "country": country
+            }
+            st.session_state.page = 'mind_check'
             st.rerun()
         else:
-            st.error("별명을 입력해줘야 모몽이가 출발할 수 있어! ( 'ㅅ' )")
+            st.warning("이름을 입력해줘! ( 'ㅅ' )")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# [PAGE 2: 12문항 테스트]
+# [PAGE 2: 심리 및 취향 딥다이브]
+elif st.session_state.page == 'mind_check':
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+    st.subheader(f"✨ {st.session_state.user_info['name']}, 너의 마음이 궁금해")
+    st.write("진지한 테스트 전에, 네가 어떤 사람인지 모몽이에게 들려줄래?")
+    
+    hobby = st.text_input("🌈 생각만 해도 기분 좋아지는 취미가 뭐야?")
+    good_at = st.text_input("💪 이건 내가 좀 잘한다! 하는 게 있을까?")
+    dislike = st.text_input("😕 이런 건 정말 하기 싫어! 하는 건?")
+    hard_thing = st.text_area("😟 요즘 너를 힘들게 하거나 고민인 게 있다면 적어줘. (비밀 보장!)")
+    
+    if st.button("내 마음 저장하고 다음으로"):
+        st.session_state.mind_info = {
+            "hobby": hobby, "good_at": good_at, 
+            "dislike": dislike, "hard_thing": hard_thing
+        }
+        st.session_state.page = 'explanation'
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# [PAGE 3: 4대 진단 용어 설명]
+elif st.session_state.page == 'explanation':
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+    st.title("🧪 모몽이의 4가지 분석 구슬")
+    st.write("우리는 아래 4가지 과학적 방법으로 너의 미래를 그려볼 거야.")
+    
+    # 홀랜드 설명
+    st.markdown("""<div class="desc-box">
+        <b>1. 홀랜드 (흥미 구슬)</b><br>
+        네 성격이 어떤 직업 환경과 잘 맞는지 알아보는 거야. (만들기, 탐구하기, 돕기 등)
+    </div>""", unsafe_allow_html=True)
+    
+    # 다중지능 설명
+    st.markdown("""<div class="desc-box">
+        <b>2. 다중지능 (재능 구슬)</b><br>
+        사람마다 잘하는 '똑똑함'의 종류가 달라. 네가 가진 가장 빛나는 재능을 찾아줄게.
+    </div>""", unsafe_allow_html=True)
+    
+    # 게임화 역량 설명
+    st.markdown("""<div class="desc-box">
+        <b>3. 게임화 역량 (행동 구슬)</b><br>
+        문제를 만났을 때 네가 어떻게 행동하는지 게임처럼 분석해. 너의 진짜 해결 능력을 알 수 있지!
+    </div>""", unsafe_allow_html=True)
+    
+    # 미래 역량 설명
+    st.markdown("""<div class="desc-box">
+        <b>4. 미래 역량 (AI 구슬)</b><br>
+        앞으로 올 AI 세상에서 네가 얼마나 준비되어 있는지, 어떤 새로운 힘이 필요한지 확인해.
+    </div>""", unsafe_allow_html=True)
+
+    if st.button("좋아, 이제 테스트 시작!"):
+        st.session_state.page = 'test'
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# [PAGE 4: 테스트 진행 (예시)]
 elif st.session_state.page == 'test':
-    # (질문 리스트 생략 - 이전과 동일하게 유지하세요)
-    questions = [
-        {"q": "기계나 도구를 직접 만지고 고치는 일이 즐거운가요? (R)", "type": "R"},
-        {"q": "새로운 사실을 알아내기 위해 관찰하고 분석하는 걸 좋아하나요? (I)", "type": "I"},
-        {"q": "예술적인 활동이나 창의적인 아이디어 내는 걸 좋아하나요? (A)", "type": "A"},
-        {"q": "어려운 친구를 돕거나 가르쳐주는 일에서 보람을 느끼나요? (S)", "type": "S"},
-        {"q": "목표를 정하고 다른 사람들을 이끌어 성과를 내고 싶나요? (E)", "type": "E"},
-        {"q": "규칙에 따라 꼼꼼하게 정리하고 기록하는 일이 편한가요? (C)", "type": "C"},
-        {"q": "운동이나 야외 활동 등 몸을 움직이는 직업이 끌리나요? (R)", "type": "R"},
-        {"q": "수학이나 과학 같은 과제 해결에 몰입하는 편인가요? (I)", "type": "I"},
-        {"q": "남들과 다른 나만의 독특한 옷이나 소품을 선호하나요? (A)", "type": "A"},
-        {"q": "사람들의 고민을 들어주고 상담해주는 게 편한가요? (S)", "type": "S"},
-        {"q": "사업을 하거나 무언가를 팔아보고 싶다는 생각을 하나요? (E)", "type": "E"},
-        {"q": "정해진 시간표대로 움직이는 것이 마음 편한가요? (C)", "type": "C"}
-    ]
-    
-    progress = st.session_state.step / len(questions)
-    st.progress(progress)
-    
-    curr_q = questions[st.session_state.step]
-    st.markdown(f"### ( 'ㅅ' ) : {curr_q['q']}")
-    
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+    st.progress(20) # 진행률 표시
+    st.subheader("Q1. 복잡한 기계나 로봇을 직접 조립하는 과정이 즐겁니?")
     col1, col2 = st.columns(2)
-    if col1.button("매우 그렇다"):
-        play_sound("kkyu.mp3")
-        st.session_state.scores[curr_q['type']] += 2
-        st.session_state.step += 1
-        if st.session_state.step >= len(questions): st.session_state.page = 'result'
+    with col1:
+        if st.button("정말 그래"): pass
+        if st.button("조금 그래"): pass
+    with col2:
+        if st.button("별로 안 그래"): pass
+        if st.button("전혀 안 그래"): pass
+    
+    st.write("\n\n")
+    st.caption("지금은 로직 확인을 위한 예시 화면이야. 나중에 12문항이 여기 들어갈 거야!")
+    if st.button("결과 페이지 미리보기"):
+        st.session_state.page = 'result_preview'
         st.rerun()
-    if col2.button("그렇지 않다"):
-        play_sound("kkyu.mp3")
-        st.session_state.step += 1
-        if st.session_state.step >= len(questions): st.session_state.page = 'result'
-        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# [PAGE 3: 결과 리포트] (이전 코드와 동일하게 유지)
-elif st.session_state.page == 'result':
-    play_sound("twinkle.mp3")
+# [PAGE 5: 결과 미리보기]
+elif st.session_state.page == 'result_preview':
     st.balloons()
-    st.header(f"🎊 {st.session_state.user_info['nickname']}님의 꿈 구슬 리포트")
-    # ... (결과 분석 로직)
+    st.title("📋 너를 위한 꿈 지도")
+    st.markdown(f"**{st.session_state.user_info['name']}**님, 모몽이가 분석한 너의 모습이야.")
+    
+    st.info(f"💡 분석 근거: 네가 좋아하는 '{st.session_state.mind_info['hobby']}'와(과) 테스트에서 보여준 논리력을 합쳐보니, 너는 미래의 설계자 스타일이야!")
+    
+    st.success("📍 국내 추천: 강원 지역인재 전형을 활용한 IT 공학 계열")
+    st.warning("🌍 글로벌 추천: 영국 임페리얼 칼리지 스타일의 심화 전공 코스")
+    
+    if st.button("처음으로 돌아가기"):
+        st.session_state.page = 'intro'
+        st.rerun()
